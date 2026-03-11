@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 
 const currentPath = window.location.pathname;
 const currentView = currentPath === "/admin" ? "admin" : "user";
-const API_URL = "http://localhost:5001";
+const API_URL = "https://usterki-miasto.onrender.com";
 const app = document.querySelector("#app");
 
 const ADMIN_LOGIN = "admin";
