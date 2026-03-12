@@ -227,6 +227,20 @@ function renderUserView() {
             });
 
             if (!response.ok) {
+                throw new Error("Nie udało się wysłać zgłoszenia");
+            }
+
+            const data = await response.json();
+            console.log(data);
+
+        } catch (error) {
+
+            console.error("Błąd:", error);
+            alert("Nie udało się wysłać zgłoszenia");
+
+        }
+
+            if (!response.ok) {
 
                 const text = await response.text();
                 throw new Error(`Serwer zwrócił błąd ${response.status}: ${text}`);
