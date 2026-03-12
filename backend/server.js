@@ -39,7 +39,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 app.use(cors({
     origin: [
-        "https://twoja-strona.vercel.app",
+        "https://usterki-miasto.vercel.app",
         "http://localhost:5173"
     ]
 }));
