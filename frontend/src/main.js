@@ -2,6 +2,20 @@ import "./style.css";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// =========================
+// FIX: Leaflet marker icons broken in Vite/webpack
+// =========================
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: markerIcon2x,
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
+});
+
 const currentPath = window.location.pathname;
 const currentView = currentPath === "/admin" ? "admin" : "user";
 const API_URL = "https://usterki-miasto.onrender.com";
@@ -136,12 +150,14 @@ function renderUserView() {
 
           <input type="file" id="image" accept="image/*" />
 
-          <button type="submit">Wyślij zgłoszenie</button>
+          <button type="submit" id="submit-btn">Wyślij zgłoszenie</button>
         </form>
 
         <div id="thank-you-message" class="success-message hidden">
           Dziękujemy, zgłoszenie zostało przyjęte.
         </div>
+
+        <div id="error-message" class="error-message hidden"></div>
       </section>
     </div>
   `;
@@ -157,6 +173,8 @@ function renderUserView() {
     const latitudeInput = document.querySelector("#latitude");
     const longitudeInput = document.querySelector("#longitude");
     const thankYouMessage = document.querySelector("#thank-you-message");
+    const errorMessage = document.querySelector("#error-message");
+    const submitBtn = document.querySelector("#submit-btn");
 
     map.on("click", (event) => {
         const { lat, lng } = event.latlng;
@@ -174,6 +192,14 @@ function renderUserView() {
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
+        // Hide previous messages
+        thankYouMessage.classList.add("hidden");
+        errorMessage.classList.add("hidden");
+
+        // Disable button during submission
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Wysyłanie...";
+
         const imageFile = document.querySelector("#image").files[0];
 
         const formData = new FormData();
@@ -187,14 +213,24 @@ function renderUserView() {
             formData.append("image", imageFile);
         }
 
+        // Debug: log what we're sending
+        console.log("Wysyłam zgłoszenie na:", `${API_URL}/reports`);
+        for (let [key, value] of formData.entries()) {
+            console.log(" ->", key, value);
+        }
+
         try {
             const response = await fetch(`${API_URL}/reports`, {
                 method: "POST",
                 body: formData,
             });
 
+            console.log("Status odpowiedzi:", response.status);
+
             if (!response.ok) {
-                throw new Error("Nie udało się dodać zgłoszenia.");
+                const errorText = await response.text();
+                console.error("Odpowiedź serwera:", errorText);
+                throw new Error(`Serwer zwrócił błąd ${response.status}: ${errorText}`);
             }
 
             form.reset();
@@ -208,9 +244,18 @@ function renderUserView() {
             setTimeout(() => {
                 thankYouMessage.classList.add("hidden");
             }, 4000);
+
         } catch (error) {
             console.error("Błąd dodawania zgłoszenia:", error);
-            alert("Wystąpił błąd podczas dodawania zgłoszenia.");
+
+            // Show detailed error to user
+            errorMessage.textContent = `Błąd: ${error.message}. Sprawdź czy serwer działa: ${API_URL}/reports`;
+            errorMessage.classList.remove("hidden");
+
+        } finally {
+            // Always re-enable button
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Wyślij zgłoszenie";
         }
     });
 }
@@ -343,8 +388,15 @@ function renderAdminView() {
     const filterStatus = document.querySelector("#filter-status");
 
     async function fetchReports() {
+        reportsList.innerHTML = `<p>Ładowanie zgłoszeń...</p>`;
+
         try {
             const response = await fetch(`${API_URL}/reports`);
+
+            if (!response.ok) {
+                throw new Error(`Serwer zwrócił błąd ${response.status}`);
+            }
+
             const reports = await response.json();
 
             document.querySelector("#count-all").textContent = reports.length;
@@ -434,6 +486,9 @@ function renderAdminView() {
 
             document.querySelectorAll(".status-select").forEach((select) => {
                 select.addEventListener("change", async (event) => {
+                    // Prevent click on select from triggering flyTo on parent
+                    event.stopPropagation();
+
                     const id = event.target.dataset.id;
                     const status = event.target.value;
 
@@ -447,19 +502,24 @@ function renderAdminView() {
                         });
 
                         if (!response.ok) {
-                            throw new Error("Nie udało się zmienić statusu");
+                            throw new Error(`Serwer zwrócił błąd ${response.status}`);
                         }
 
                         fetchReports();
                     } catch (error) {
                         console.error("Błąd zmiany statusu:", error);
-                        alert("Nie udało się zmienić statusu.");
+                        alert("Nie udało się zmienić statusu: " + error.message);
                     }
                 });
             });
+
         } catch (error) {
             console.error("Błąd pobierania zgłoszeń:", error);
-            reportsList.innerHTML = `<p>Nie udało się pobrać zgłoszeń.</p>`;
+            reportsList.innerHTML = `
+                <p class="error-message">
+                    Nie udało się pobrać zgłoszeń: ${error.message}<br>
+                    Sprawdź czy serwer działa: <a href="${API_URL}/reports" target="_blank">${API_URL}/reports</a>
+                </p>`;
         }
     }
 
