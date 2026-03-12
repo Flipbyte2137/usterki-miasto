@@ -2,9 +2,6 @@ import "./style.css";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// =========================
-// FIX: Leaflet marker icons broken in Vite/webpack
-// =========================
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -28,9 +25,6 @@ let map = null;
 let selectedMarker = null;
 let reportMarkers = [];
 
-// =========================
-// WSPÓLNE FUNKCJE
-// =========================
 function initMap(mapId, center = [50.318, 19.237], zoom = 12) {
     map = L.map(mapId).setView(center, zoom);
 
@@ -55,9 +49,6 @@ function clearReportMarkers() {
     reportMarkers = [];
 }
 
-// =========================
-// WIDOK UŻYTKOWNIKA
-// =========================
 function renderUserView() {
     const savedProfile = JSON.parse(localStorage.getItem("reporterProfile") || "null");
 
@@ -84,11 +75,7 @@ function renderUserView() {
             const name = document.querySelector("#reporter-name").value.trim();
             const email = document.querySelector("#reporter-email").value.trim();
 
-            localStorage.setItem(
-                "reporterProfile",
-                JSON.stringify({ name, email })
-            );
-
+            localStorage.setItem("reporterProfile", JSON.stringify({ name, email }));
             renderUserView();
         });
 
@@ -96,16 +83,16 @@ function renderUserView() {
     }
 
     app.innerHTML = `
-  <div class="container">
-    <section class="card">
-      <div class="top-row">
-        <div>
-          <h1>System zgłaszania usterek w Dąbrowie Górniczej</h1>
-          <p class="muted">Użytkownik: <strong>${savedProfile.name}</strong> (${savedProfile.email})</p>
+    <div class="container">
+      <section class="card">
+        <div class="top-row">
+          <div>
+            <h1>System zgłaszania usterek w Dąbrowie Górniczej</h1>
+            <p class="muted">Użytkownik: <strong>${savedProfile.name}</strong> (${savedProfile.email})</p>
+          </div>
+          <button id="logout-user" class="secondary-btn">Zmień dane</button>
         </div>
-        <button id="logout-user" class="secondary-btn">Zmień dane</button>
-      </div>
-    </section>
+      </section>
 
       <section class="card">
         <h2>Mapa zgłoszenia</h2>
@@ -192,11 +179,9 @@ function renderUserView() {
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
-        // Hide previous messages
         thankYouMessage.classList.add("hidden");
         errorMessage.classList.add("hidden");
 
-        // Disable button during submission
         submitBtn.disabled = true;
         submitBtn.textContent = "Wysyłanie...";
 
@@ -213,53 +198,16 @@ function renderUserView() {
             formData.append("image", imageFile);
         }
 
-        // Debug: log what we're sending
         console.log("Wysyłam zgłoszenie na:", `${API_URL}/reports`);
-        for (let [key, value] of formData.entries()) {
+        for (const [key, value] of formData.entries()) {
             console.log(" ->", key, value);
         }
 
         try {
-
             const response = await fetch(`${API_URL}/reports`, {
                 method: "POST",
-                body: formData
+                body: formData,
             });
-
-            if (!response.ok) {
-                throw new Error("Nie udało się wysłać zgłoszenia");
-            }
-
-            const data = await response.json();
-            console.log(data);
-
-        } catch (error) {
-
-            console.error("Błąd:", error);
-            alert("Nie udało się wysłać zgłoszenia");
-
-        }
-
-            if (!response.ok) {
-
-                const text = await response.text();
-                throw new Error(`Serwer zwrócił błąd ${response.status}: ${text}`);
-
-            }
-
-            const data = await response.json();
-
-            console.log("Zgłoszenie zapisane:", data);
-
-            fetchReports(); // odśwież listę zgłoszeń
-
-        } catch (error) {
-
-            console.error("Błąd dodawania zgłoszenia:", error);
-
-            alert("Błąd: " + error.message + "\n\nSprawdź czy serwer działa: " + API_URL + "/reports");
-
-        }
 
             console.log("Status odpowiedzi:", response.status);
 
@@ -268,6 +216,9 @@ function renderUserView() {
                 console.error("Odpowiedź serwera:", errorText);
                 throw new Error(`Serwer zwrócił błąd ${response.status}: ${errorText}`);
             }
+
+            const data = await response.json();
+            console.log("Zgłoszenie zapisane:", data);
 
             form.reset();
             thankYouMessage.classList.remove("hidden");
@@ -280,25 +231,17 @@ function renderUserView() {
             setTimeout(() => {
                 thankYouMessage.classList.add("hidden");
             }, 4000);
-
         } catch (error) {
             console.error("Błąd dodawania zgłoszenia:", error);
-
-            // Show detailed error to user
             errorMessage.textContent = `Błąd: ${error.message}. Sprawdź czy serwer działa: ${API_URL}/reports`;
             errorMessage.classList.remove("hidden");
-
         } finally {
-            // Always re-enable button
             submitBtn.disabled = false;
             submitBtn.textContent = "Wyślij zgłoszenie";
         }
     });
 }
 
-// =========================
-// LOGOWANIE ADMINISTRATORA
-// =========================
 function renderAdminLogin() {
     app.innerHTML = `
     <div class="container narrow">
@@ -338,9 +281,6 @@ function renderAdminLogin() {
     });
 }
 
-// =========================
-// WIDOK ADMINISTRATORA
-// =========================
 function renderAdminView() {
     const isAuthenticated = localStorage.getItem("adminAuthenticated") === "true";
 
@@ -522,7 +462,6 @@ function renderAdminView() {
 
             document.querySelectorAll(".status-select").forEach((select) => {
                 select.addEventListener("change", async (event) => {
-                    // Prevent click on select from triggering flyTo on parent
                     event.stopPropagation();
 
                     const id = event.target.dataset.id;
@@ -548,7 +487,6 @@ function renderAdminView() {
                     }
                 });
             });
-
         } catch (error) {
             console.error("Błąd pobierania zgłoszeń:", error);
             reportsList.innerHTML = `
@@ -565,9 +503,6 @@ function renderAdminView() {
     fetchReports();
 }
 
-// =========================
-// START
-// =========================
 if (currentView === "admin") {
     renderAdminView();
 } else {
