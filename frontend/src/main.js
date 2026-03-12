@@ -220,10 +220,32 @@ function renderUserView() {
         }
 
         try {
+
             const response = await fetch(`${API_URL}/reports`, {
                 method: "POST",
-                body: formData,
+                body: formData
             });
+
+            if (!response.ok) {
+
+                const text = await response.text();
+                throw new Error(`Serwer zwrócił błąd ${response.status}: ${text}`);
+
+            }
+
+            const data = await response.json();
+
+            console.log("Zgłoszenie zapisane:", data);
+
+            fetchReports(); // odśwież listę zgłoszeń
+
+        } catch (error) {
+
+            console.error("Błąd dodawania zgłoszenia:", error);
+
+            alert("Błąd: " + error.message + "\n\nSprawdź czy serwer działa: " + API_URL + "/reports");
+
+        }
 
             console.log("Status odpowiedzi:", response.status);
 
