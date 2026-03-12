@@ -5,8 +5,16 @@ const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
 const pool = require("./db");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { error: "Za dużo zapytań. Spróbuj ponownie za kilka minut." }
+});
+
+app.use(apiLimiter);
 
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
@@ -28,14 +36,26 @@ const storage = multer.diskStorage({
     },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+    storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+        if (!allowedTypes.includes(file.mimetype)) {
+            return cb(new Error("Dozwolone tylko pliki JPG, PNG lub WEBP"));
+        }
+
+        cb(null, true);
+    }
+});
 
 pool.query("SELECT NOW()")
     .then((res) => console.log("Polaczono z baza danych:", res.rows[0].now))
     .catch((err) => console.error("Blad polaczenia z baza danych:", err.message));
 
-// SETUP - odwiedz raz aby utworzyc tabele: /setup
-app.get("/setup", async (req, res) => {
     try {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS reports (
@@ -111,6 +131,12 @@ app.get("/reports", async (req, res) => {
 });
 
 app.put("/reports/:id/status", async (req, res) => {
+
+    const adminKey = req.headers["x-admin-key"];
+
+    if (adminKey !== process.env.ADMIN_KEY) {
+        return res.status(403).json({ error: "Brak uprawnień administratora" });
+    }
     try {
         const { id } = req.params;
         const { status } = req.body;
